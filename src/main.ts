@@ -47,7 +47,6 @@ function haDevice(ip: string) {
     manufacturer: 'Wallpaper Engine',
     model: 'Wallpaper Engine (local)',
     name: `Wallpaper Engine (${ip})`
-    // removed via_device to avoid Home Assistant error
   }
 }
 
@@ -98,7 +97,9 @@ async function main() {
           client.publish(makeTopic('we', nodeId, 'muted', 'state'), state.muted?'ON':'OFF',{retain:true})
           break
         case makeTopic('we', nodeId, 'paused', 'set'):
-          await we.controls().pause(), state.paused = !state.paused
+          state.paused = ['ON','1'].includes(msg) || msg.toLowerCase() === 'true'
+          if(state.paused) await we.controls().pause()
+          else await we.controls().play()
           client.publish(makeTopic('we', nodeId, 'paused', 'state'), state.paused?'ON':'OFF',{retain:true})
           break
         case makeTopic('we', nodeId, 'button_play', 'set'):
@@ -110,7 +111,11 @@ async function main() {
           client.publish(makeTopic('we', nodeId, 'button_stop', 'state'),'pressed',{retain:false})
           break
         case makeTopic('we', nodeId, 'select_wallpaper', 'set'):
-          await we.wallpaper().load(msg)
+          // support monitor selection via msg format: name|monitorIndex, name|all, or just name
+          const [name, monitorIndexStr] = msg.split('|')
+          const monitorIndex = monitorIndexStr === 'all' ? undefined : monitorIndexStr !== undefined ? parseInt(monitorIndexStr) : undefined
+          const wp = wallpapers.find(w => w.title === name)
+          if(wp) await we.wallpaper().load(wp.id, monitorIndex)
           client.publish(makeTopic('we', nodeId, 'select_wallpaper', 'state'), msg,{retain:true})
           break
         case makeTopic('we', nodeId, 'select_profile', 'set'):
@@ -164,7 +169,7 @@ async function main() {
       profiles = await weApi.listProfiles()||[]
 
       publishJson(client, haDiscoveryTopic('select', nodeId, 'select_wallpaper'), {
-        name:'Wallpaper', unique_id:`${nodeId}_select_wallpaper`, command_topic: makeTopic('we', nodeId,'select_wallpaper','set'), state_topic: makeTopic('we', nodeId,'select_wallpaper','state'), options: wallpapers.map(w=>w.id), device: haDevice(getLocalIPv4())
+        name:'Wallpaper', unique_id:`${nodeId}_select_wallpaper`, command_topic: makeTopic('we', nodeId,'select_wallpaper','set'), state_topic: makeTopic('we', nodeId,'select_wallpaper','state'), options: wallpapers.map(w=>w.title), device: haDevice(getLocalIPv4())
       },{retain:true})
 
       publishJson(client, haDiscoveryTopic('select', nodeId, 'select_profile'), {
