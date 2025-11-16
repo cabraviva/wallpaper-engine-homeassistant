@@ -21,5 +21,9 @@
     "devDependencies": {
         "@types/node": "^24.10.1",
         "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "mqtt": "^5.14.1",
+        "wallpaper-engine-api": "^1.0.1"
     }
 }
